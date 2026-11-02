@@ -107,7 +107,7 @@
     <div id="logTab" class="tab-content">
       <button type="button" class="reload-btn" onclick="fetchLogs()">最新ログを更新</button>
       <div id="logsContainer">
-        <div style="text-align: center; color: #888; font-size: 13px;">ログを読み込み中...</div>
+        <div style="text-align: center; color: #888; font-size: 13px;">お名前を入力して送信するとログが表示されます</div>
       </div>
     </div>
   </div>
@@ -117,7 +117,7 @@
     
     // URLクエリパラメータの解析
     const urlParams = new URLSearchParams(window.location.search);
-    const GAS_URL = urlParams.get('gas') || "https://script.google.com/macros/s/【ご自身のテスト用GASのID】/exec";
+    const GAS_URL = urlParams.get('gas') || "https://script.google.com/macros/s/【ご自身のGASウェブアプリID】/exec";
 
     const hideExpense = urlParams.get('expense') === 'off';
     const hideTransport = urlParams.get('transport') === 'off';
@@ -125,6 +125,7 @@
     const hideSpecial2 = urlParams.get('special2') === 'off';
 
     window.addEventListener('DOMContentLoaded', () => {
+      // 表示/非表示パラメータ適用
       if (hideExpense) {
         const expGroup = document.getElementById('group_expense');
         if (expGroup) expGroup.style.display = 'none';
@@ -141,32 +142,22 @@
         const spec2Group = document.getElementById('group_special2');
         if (spec2Group) spec2Group.style.display = 'none';
       }
+
+      // 本日の日付をセット
+      document.getElementById("work_date").value = new Date().toISOString().split('T')[0];
+
+      // 前回保存した名前があれば復元
+      const savedName = localStorage.getItem("staff_name_saved");
+      if (savedName) {
+        document.getElementById("staff_name").value = savedName;
+        fetchLogs(); // 名前があれば初期ログ取得
+      }
+
+      // LIFFの初期化（枠組みの用意のみ）
+      if (typeof liff !== "undefined") {
+        liff.init({ liffId: LIFF_ID }).catch(err => console.error("LIFF Init Error:", err));
+      }
     });
-
-    let currentUserId = "";
-
-    // LIFFの初期化
-    liff.init({ liffId: LIFF_ID })
-      .then(() => {
-        document.getElementById("work_date").value = new Date().toISOString().split('T')[0];
-      
-        if (liff.isLoggedIn()) {
-          liff.getProfile().then(profile => {
-            currentUserId = profile.userId;
-
-            // 前回ローカルストレージに保存した名前があれば復元
-            const savedName = localStorage.getItem("staff_name_saved");
-            if (savedName) {
-              document.getElementById("staff_name").value = savedName;
-            }
-
-            fetchLogs();
-          });
-        } else {
-          liff.login();
-        }
-      })
-      .catch(err => console.error("LIFF Init Error:", err));
 
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -182,11 +173,13 @@
       }
     }
 
+    // フォーム送信処理
     document.getElementById("attendanceForm").addEventListener("submit", function(e) {
       e.preventDefault();
       
-      if (!currentUserId) {
-        alert("LINEユーザー情報の取得に失敗しました。LINEアプリ内から再実行してください。");
+      const inputName = document.getElementById("staff_name").value.trim();
+      if (!inputName) {
+        alert("お名前を入力してください。");
         return;
       }
 
@@ -199,11 +192,8 @@
       const isSpecial1 = hideSpecial1 ? false : document.getElementById("is_special_wage1").checked;
       const isSpecial2 = hideSpecial2 ? false : document.getElementById("is_special_wage2").checked;
 
-      const inputName = document.getElementById("staff_name").value.trim();
-
       const formData = {
         action: "submit",
-        user_id: currentUserId,
         staff_name: inputName,
         work_date: document.getElementById("work_date").value,
         start_time: document.getElementById("start_time").value,
@@ -225,10 +215,8 @@
         if (data.status === "success") {
           alert(data.message);
 
-          // 送信成功時に入力したお名前をローカルストレージへ保存
-          if (inputName) {
-            localStorage.setItem("staff_name_saved", inputName);
-          }
+          // 送信成功時にお名前をローカルストレージへ保存
+          localStorage.setItem("staff_name_saved", inputName);
 
           renderLogs(data.logs);
           switchTab('logTab');
@@ -245,14 +233,19 @@
       });
     });
 
+    // ログ取得処理
     function fetchLogs() {
-      if (!currentUserId) return;
-
+      const inputName = document.getElementById("staff_name").value.trim();
       const container = document.getElementById("logsContainer");
-      
+
+      if (!inputName) {
+        container.innerHTML = "<div style='text-align:center; color:#888;'>お名前を入力するとログが表示されます</div>";
+        return;
+      }
+
       fetch(GAS_URL, {
         method: "POST",
-        body: JSON.stringify({ action: "get_logs", user_id: currentUserId })
+        body: JSON.stringify({ action: "get_logs", staff_name: inputName })
       })
       .then(res => res.json())
       .then(data => {
@@ -267,6 +260,7 @@
       });
     }
 
+    // ログ描画処理
     function renderLogs(logs) {
       const container = document.getElementById("logsContainer");
       container.innerHTML = "";
