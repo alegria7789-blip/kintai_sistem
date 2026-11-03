@@ -12,11 +12,14 @@
     button { background-color: #07c755; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
     button:disabled { background-color: #ccc; }
     .error-msg { color: red; margin-top: 10px; font-size: 14px; }
+    .status-badge { font-size: 12px; color: #666; margin-bottom: 15px; text-align: right; }
   </style>
 </head>
 <body>
 
   <h2>勤怠打刻</h2>
+  <div id="apiStatus" class="status-badge"></div>
+
   <form id="attendanceForm">
     
     <!-- 名前選択 -->
@@ -32,7 +35,7 @@
     <!-- 4桁PIN入力 -->
     <div class="form-group">
       <label for="pin">暗証番号 (4桁PIN)</label>
-      <input type="password" id="pin" maxlength="4" pattern="\d{4}" inputmode="numeric" placeholder="1234" requiredautocomplete="off">
+      <input type="password" id="pin" maxlength="4" pattern="\d{4}" inputmode="numeric" placeholder="1234" required autocomplete="off">
     </div>
 
     <!-- 打刻項目 -->
@@ -77,16 +80,37 @@
   <div id="message" class="error-msg"></div>
 
   <script>
-    // ★ご自身のGAS WebアプリURLに差し替えてください
-    const GAS_URL = "YOUR_GAS_DEPLOY_URL_HERE";
+    let gasUrl = "";
 
-    // 画面ロード時の初期処理
+    // 画面ロード時の初期化処理
     document.addEventListener("DOMContentLoaded", () => {
-      // 本日の日付をデフォルトセット
+      // 1. クエリパラメータ（?api=...）からGAS URLを取得
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramApi = urlParams.get('api');
+
+      if (paramApi) {
+        gasUrl = paramApi;
+        // ブラウザにキャッシュ保持
+        localStorage.setItem("attendance_gas_url", paramApi);
+      } else {
+        // パラメータがない場合は過去に保存したURLを利用
+        gasUrl = localStorage.getItem("attendance_gas_url") || "";
+      }
+
+      // 接続状況のステータス表示
+      const apiStatusDiv = document.getElementById("apiStatus");
+      if (gasUrl) {
+        apiStatusDiv.textContent = "● 接続先API設定済み";
+      } else {
+        apiStatusDiv.textContent = "✖ API未設定 (?api=URL を指定してください)";
+        apiStatusDiv.style.color = "red";
+      }
+
+      // 2. 本日の日付をデフォルトセット
       const today = new Date().toISOString().split('T')[0];
       document.getElementById("date").value = today;
 
-      // localStorageから前回の名前を復元
+      // 3. localStorageから前回の名前を復元
       const savedName = localStorage.getItem("attendance_user_name");
       if (savedName) {
         document.getElementById("name").value = savedName;
@@ -100,10 +124,17 @@
       const submitBtn = document.getElementById("submitBtn");
       const messageDiv = document.getElementById("message");
       messageDiv.textContent = "";
+
+      // API URLのチェック
+      if (!gasUrl) {
+        alert("❌ エラー: 通信先のGAS URLが設定されていません。\nURLの末尾に「?api=GASのWebアプリURL」を付けてアクセスしてください。");
+        return;
+      }
+
       submitBtn.disabled = true;
       submitBtn.textContent = "送信中...";
 
-      const selectedDate = document.getElementById("date").value; // "YYYY-MM-DD"
+      const selectedDate = document.getElementById("date").value;
       const dateParts = selectedDate.split("-");
 
       const selectedName = document.getElementById("name").value;
@@ -112,7 +143,7 @@
       // 名前をlocalStorageに保存（次回用）
       localStorage.setItem("attendance_user_name", selectedName);
 
-      // 時間計算ロジック（簡易計算例）
+      // 時間計算
       const startTime = document.getElementById("startTime").value;
       const endTime = document.getElementById("endTime").value;
       const restMin = Number(document.getElementById("restMinutes").value) || 0;
@@ -122,8 +153,8 @@
       if (startTime && endTime) {
         const start = new Date(`${selectedDate}T${startTime}`);
         const end = new Date(`${selectedDate}T${endTime}`);
-        const diffDiff = (end - start) / (1000 * 60 * 60); // 時間換算
-        const actualWork = Math.max(0, diffDiff - (restMin / 60));
+        const diff = (end - start) / (1000 * 60 * 60);
+        const actualWork = Math.max(0, diff - (restMin / 60));
         workHours = Math.round(actualWork * 100) / 100;
         overtimeHours = Math.max(0, Math.round((workHours - 8) * 100) / 100);
       }
@@ -149,7 +180,7 @@
       };
 
       try {
-        const response = await fetch(GAS_URL, {
+        const response = await fetch(gasUrl, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify(payload)
@@ -159,13 +190,13 @@
 
         if (result.status === "success") {
           alert("✅ " + result.message);
-          // PIN入力欄のみクリア
+          // パスコードのみセキュリティのためクリア
           document.getElementById("pin").value = "";
         } else {
           alert("⚠️ " + result.message);
         }
       } catch (err) {
-        alert("❌ 通信エラーが発生しました。ネットワーク状況を確認してください。");
+        alert("❌ 通信エラーが発生しました。ネットワーク状況およびURLを確認してください。");
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = "送信する";
