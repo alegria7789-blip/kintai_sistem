@@ -3,291 +3,174 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>勤怠・経費管理</title>
-  <!-- LINE LIFF SDK -->
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <title>勤怠打刻フォーム</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 15px; background: #f4f5f7; margin: 0; }
-    .container { max-width: 400px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
-    
-    .tab-header { display: flex; border-bottom: 2px solid #eee; margin-bottom: 20px; }
-    .tab-btn { flex: 1; padding: 12px; text-align: center; font-weight: bold; font-size: 14px; color: #888; background: none; border: none; cursor: pointer; border-bottom: 3px solid transparent; }
-    .tab-btn.active { color: #06C755; border-bottom-color: #06C755; }
-    
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-
-    .form-group { margin-bottom: 14px; }
-    label { display: block; font-weight: bold; margin-bottom: 4px; font-size: 13px; color: #444; }
-    input[type="text"], input[type="date"], input[type="time"], input[type="number"], textarea { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; font-family: inherit; }
-    textarea { resize: vertical; height: 50px; }
-    
-    .checkbox-group { display: flex; align-items: center; cursor: pointer; user-select: none; padding: 6px 0; }
-    .checkbox-group input[type="checkbox"] { width: 20px; height: 20px; margin-right: 10px; accent-color: #06C755; cursor: pointer; }
-    .checkbox-group label { margin-bottom: 0; cursor: pointer; font-size: 14px; color: #333; }
-
-    .submit-btn { width: 100%; padding: 12px; background: #06C755; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-    .submit-btn:disabled { background: #ccc; }
-    
-    .log-card { background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 10px; font-size: 13px; border-left: 4px solid #06C755; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    .log-date { font-weight: bold; color: #06C755; font-size: 14px; margin-bottom: 4px; }
-    .log-detail { color: #555; line-height: 1.4; }
-    .reload-btn { width: 100%; padding: 10px; background: #555; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; margin-bottom: 15px; }
+    body { font-family: sans-serif; max-width: 500px; margin: 20px auto; padding: 0 15px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    select, input, button { width: 100%; padding: 10px; box-sizing: border-box; font-size: 16px; }
+    button { background-color: #07c755; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+    button:disabled { background-color: #ccc; }
+    .error-msg { color: red; margin-top: 10px; font-size: 14px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="tab-header">
-      <button class="tab-btn active" onclick="switchTab('inputTab')">勤怠入力</button>
-      <button class="tab-btn" onclick="switchTab('logTab')">打刻ログ確認</button>
+
+  <h2>勤怠打刻</h2>
+  <form id="attendanceForm">
+    
+    <!-- 名前選択 -->
+    <div class="form-group">
+      <label for="name">名前</label>
+      <select id="name" required>
+        <option value="">選択してください</option>
+        <option value="あ">あ</option>
+        <option value="い">い</option>
+      </select>
     </div>
 
-    <!-- 1. 勤怠入力タブ -->
-    <div id="inputTab" class="tab-content active">
-      <form id="attendanceForm" autocomplete="off">
-        <div class="form-group">
-          <label>お名前（フルネーム）</label>
-          <input type="text" id="staff_name" placeholder="例: 山田 太郎" autocomplete="off" required>
-        </div>
-
-        <div class="form-group">
-          <label>日付</label>
-          <input type="date" id="work_date" required>
-        </div>
-
-        <div class="form-group">
-          <label>出勤時間</label>
-          <input type="time" id="start_time" value="09:00" required>
-        </div>
-
-        <div class="form-group">
-          <label>退勤時間</label>
-          <input type="time" id="end_time" value="17:00" required>
-        </div>
-
-        <div class="form-group">
-          <label>休憩時間 (分)</label>
-          <input type="number" id="break_minutes" value="60" required>
-        </div>
-
-        <!-- オプション機能：特別時給① -->
-        <div class="form-group checkbox-group" id="group_special1">
-          <input type="checkbox" id="is_special_wage1">
-          <label for="is_special_wage1">特別時給①を適用する</label>
-        </div>
-
-        <!-- オプション機能：特別時給② -->
-        <div class="form-group checkbox-group" id="group_special2">
-          <input type="checkbox" id="is_special_wage2">
-          <label for="is_special_wage2">特別時給②を適用する</label>
-        </div>
-
-        <!-- オプション機能：立替金 -->
-        <div class="form-group" id="group_expense">
-          <label>立替金 (円)</label>
-          <input type="number" id="expense_amount" value="0">
-        </div>
-
-        <!-- オプション機能：交通費 -->
-        <div class="form-group" id="group_transport">
-          <label>交通費 (円)</label>
-          <input type="number" id="transport_cost" value="0">
-        </div>
-
-        <div class="form-group">
-          <label>備考欄</label>
-          <textarea id="memo" placeholder="遅刻理由や連絡事項など"></textarea>
-        </div>
-
-        <button type="submit" id="submitBtn" class="submit-btn">送信する</button>
-      </form>
+    <!-- 4桁PIN入力 -->
+    <div class="form-group">
+      <label for="pin">暗証番号 (4桁PIN)</label>
+      <input type="password" id="pin" maxlength="4" pattern="\d{4}" inputmode="numeric" placeholder="1234" requiredautocomplete="off">
     </div>
 
-    <!-- 2. 打刻ログ確認タブ -->
-    <div id="logTab" class="tab-content">
-      <button type="button" class="reload-btn" onclick="fetchLogs()">最新ログを更新</button>
-      <div id="logsContainer">
-        <div style="text-align: center; color: #888; font-size: 13px;">お名前を入力して送信するとログが表示されます</div>
-      </div>
+    <!-- 打刻項目 -->
+    <div class="form-group">
+      <label for="date">日付</label>
+      <input type="date" id="date" required>
     </div>
-  </div>
+
+    <div class="form-group">
+      <label for="startTime">出勤時間</label>
+      <input type="time" id="startTime" required>
+    </div>
+
+    <div class="form-group">
+      <label for="endTime">退勤時間</label>
+      <input type="time" id="endTime" required>
+    </div>
+
+    <div class="form-group">
+      <label for="restMinutes">休憩時間 (分)</label>
+      <input type="number" id="restMinutes" value="60" min="0">
+    </div>
+
+    <div class="form-group">
+      <label for="transportation">交通費 (円)</label>
+      <input type="number" id="transportation" value="0" min="0">
+    </div>
+
+    <div class="form-group">
+      <label for="reimbursement">立替金 (円)</label>
+      <input type="number" id="reimbursement" value="0" min="0">
+    </div>
+
+    <div class="form-group">
+      <label for="otherAdjustment">その他増減給 (円)</label>
+      <input type="number" id="otherAdjustment" value="0">
+    </div>
+
+    <button type="submit" id="submitBtn">送信する</button>
+  </form>
+
+  <div id="message" class="error-msg"></div>
 
   <script>
-    const LIFF_ID = "2012196822-vZFn0zUq"; 
-    
-    // URLクエリパラメータの解析
-    const urlParams = new URLSearchParams(window.location.search);
-    const GAS_URL = urlParams.get('gas') || "https://script.google.com/macros/s/【ご自身のGASウェブアプリID】/exec";
+    // ★ご自身のGAS WebアプリURLに差し替えてください
+    const GAS_URL = "YOUR_GAS_DEPLOY_URL_HERE";
 
-    const hideExpense = urlParams.get('expense') === 'off';
-    const hideTransport = urlParams.get('transport') === 'off';
-    const hideSpecial1 = urlParams.get('special1') === 'off';
-    const hideSpecial2 = urlParams.get('special2') === 'off';
+    // 画面ロード時の初期処理
+    document.addEventListener("DOMContentLoaded", () => {
+      // 本日の日付をデフォルトセット
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById("date").value = today;
 
-    window.addEventListener('DOMContentLoaded', () => {
-      // 表示/非表示パラメータ適用
-      if (hideExpense) {
-        const expGroup = document.getElementById('group_expense');
-        if (expGroup) expGroup.style.display = 'none';
-      }
-      if (hideTransport) {
-        const transGroup = document.getElementById('group_transport');
-        if (transGroup) transGroup.style.display = 'none';
-      }
-      if (hideSpecial1) {
-        const spec1Group = document.getElementById('group_special1');
-        if (spec1Group) spec1Group.style.display = 'none';
-      }
-      if (hideSpecial2) {
-        const spec2Group = document.getElementById('group_special2');
-        if (spec2Group) spec2Group.style.display = 'none';
-      }
-
-      // 本日の日付をセット
-      document.getElementById("work_date").value = new Date().toISOString().split('T')[0];
-
-      // 前回保存した名前があれば復元
-      const savedName = localStorage.getItem("staff_name_saved");
+      // localStorageから前回の名前を復元
+      const savedName = localStorage.getItem("attendance_user_name");
       if (savedName) {
-        document.getElementById("staff_name").value = savedName;
-        fetchLogs(); // 名前があれば初期ログ取得
-      }
-
-      // LIFFの初期化（枠組みの用意のみ）
-      if (typeof liff !== "undefined") {
-        liff.init({ liffId: LIFF_ID }).catch(err => console.error("LIFF Init Error:", err));
+        document.getElementById("name").value = savedName;
       }
     });
-
-    function switchTab(tabId) {
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-      
-      if (tabId === 'inputTab') {
-        document.querySelectorAll('.tab-btn')[0].classList.add('active');
-        document.getElementById('inputTab').classList.add('active');
-      } else {
-        document.querySelectorAll('.tab-btn')[1].classList.add('active');
-        document.getElementById('logTab').classList.add('active');
-        fetchLogs();
-      }
-    }
 
     // フォーム送信処理
-    document.getElementById("attendanceForm").addEventListener("submit", function(e) {
+    document.getElementById("attendanceForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      
-      const inputName = document.getElementById("staff_name").value.trim();
-      if (!inputName) {
-        alert("お名前を入力してください。");
-        return;
-      }
 
       const submitBtn = document.getElementById("submitBtn");
+      const messageDiv = document.getElementById("message");
+      messageDiv.textContent = "";
       submitBtn.disabled = true;
-      submitBtn.innerText = "送信処理中...";
+      submitBtn.textContent = "送信中...";
 
-      const expenseVal = hideExpense ? 0 : (Number(document.getElementById("expense_amount").value) || 0);
-      const transportVal = hideTransport ? 0 : (Number(document.getElementById("transport_cost").value) || 0);
-      const isSpecial1 = hideSpecial1 ? false : document.getElementById("is_special_wage1").checked;
-      const isSpecial2 = hideSpecial2 ? false : document.getElementById("is_special_wage2").checked;
+      const selectedDate = document.getElementById("date").value; // "YYYY-MM-DD"
+      const dateParts = selectedDate.split("-");
 
-      const formData = {
-        action: "submit",
-        staff_name: inputName,
-        work_date: document.getElementById("work_date").value,
-        start_time: document.getElementById("start_time").value,
-        end_time: document.getElementById("end_time").value,
-        break_minutes: Number(document.getElementById("break_minutes").value) || 0,
-        is_special_wage1: isSpecial1,
-        is_special_wage2: isSpecial2,
-        expense_amount: expenseVal,
-        transport_cost: transportVal,
-        memo: document.getElementById("memo").value || ""
+      const selectedName = document.getElementById("name").value;
+      const inputPin = document.getElementById("pin").value;
+
+      // 名前をlocalStorageに保存（次回用）
+      localStorage.setItem("attendance_user_name", selectedName);
+
+      // 時間計算ロジック（簡易計算例）
+      const startTime = document.getElementById("startTime").value;
+      const endTime = document.getElementById("endTime").value;
+      const restMin = Number(document.getElementById("restMinutes").value) || 0;
+
+      let workHours = 0;
+      let overtimeHours = 0;
+      if (startTime && endTime) {
+        const start = new Date(`${selectedDate}T${startTime}`);
+        const end = new Date(`${selectedDate}T${endTime}`);
+        const diffDiff = (end - start) / (1000 * 60 * 60); // 時間換算
+        const actualWork = Math.max(0, diffDiff - (restMin / 60));
+        workHours = Math.round(actualWork * 100) / 100;
+        overtimeHours = Math.max(0, Math.round((workHours - 8) * 100) / 100);
+      }
+
+      const payload = {
+        name: selectedName,
+        pin: inputPin,
+        year: dateParts[0],
+        month: dateParts[1],
+        date: selectedDate,
+        startTime: startTime,
+        endTime: endTime,
+        restMinutes: restMin,
+        workHours: workHours,
+        overtimeHours: overtimeHours,
+        midnightHours: 0,
+        specialHours1: 0,
+        specialHours2: 0,
+        reimbursement: document.getElementById("reimbursement").value,
+        transportation: document.getElementById("transportation").value,
+        otherAdjustment: document.getElementById("otherAdjustment").value,
+        memo: ""
       };
 
-      fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify(formData)
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === "success") {
-          alert(data.message);
+      try {
+        const response = await fetch(GAS_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
 
-          // 送信成功時にお名前をローカルストレージへ保存
-          localStorage.setItem("staff_name_saved", inputName);
+        const result = await response.json();
 
-          renderLogs(data.logs);
-          switchTab('logTab');
+        if (result.status === "success") {
+          alert("✅ " + result.message);
+          // PIN入力欄のみクリア
+          document.getElementById("pin").value = "";
         } else {
-          alert("エラー: " + data.message);
+          alert("⚠️ " + result.message);
         }
-      })
-      .catch(err => {
-        alert("送信エラーが発生しました: " + err);
-      })
-      .finally(() => {
+      } catch (err) {
+        alert("❌ 通信エラーが発生しました。ネットワーク状況を確認してください。");
+      } finally {
         submitBtn.disabled = false;
-        submitBtn.innerText = "送信する";
-      });
+        submitBtn.textContent = "送信する";
+      }
     });
-
-    // ログ取得処理
-    function fetchLogs() {
-      const inputName = document.getElementById("staff_name").value.trim();
-      const container = document.getElementById("logsContainer");
-
-      if (!inputName) {
-        container.innerHTML = "<div style='text-align:center; color:#888;'>お名前を入力するとログが表示されます</div>";
-        return;
-      }
-
-      fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "get_logs", staff_name: inputName })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === "success") {
-          renderLogs(data.logs);
-        } else {
-          container.innerHTML = "<div style='text-align:center; color:red;'>ログの取得に失敗しました</div>";
-        }
-      })
-      .catch(err => {
-        container.innerHTML = "<div style='text-align:center; color:red;'>通信エラーが発生しました</div>";
-      });
-    }
-
-    // ログ描画処理
-    function renderLogs(logs) {
-      const container = document.getElementById("logsContainer");
-      container.innerHTML = "";
-
-      if (!logs || logs.length === 0) {
-        container.innerHTML = "<div style='text-align:center; color:#888;'>打刻履歴はありません</div>";
-        return;
-      }
-
-      logs.forEach(log => {
-        const card = document.createElement("div");
-        card.className = "log-card";
-        
-        let specialTags = "";
-        if (log.specialHours1 > 0) specialTags += " <span style='background:#e6f7ff; color:#1890ff; padding:2px 6px; border-radius:4px; font-size:11px;'>特➀</span>";
-        if (log.specialHours2 > 0) specialTags += " <span style='background:#fff7e6; color:#fa8c16; padding:2px 6px; border-radius:4px; font-size:11px;'>特➁</span>";
-
-        card.innerHTML = `
-          <div class="log-date">📅 ${log.date} ${specialTags}</div>
-          <div class="log-detail">
-            <b>時間:</b> ${log.start} 〜 ${log.end} (実働 ${log.workHours}h)<br>
-            ${log.memo ? `<b>備考:</b> ${log.memo}` : ''}
-          </div>
-        `;
-        container.appendChild(card);
-      });
-    }
   </script>
 </body>
 </html>
